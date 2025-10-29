@@ -21,7 +21,7 @@ pipeline {
     stages {
         stage('Checkout Code') {
             steps {
-                echo 'Checking out code from GitHub...'
+                echo '🔹 Checking out code from GitHub...'
                 checkout scmGit(
                     branches: [[name: '*/main']],
                     userRemoteConfigs: [[url: 'https://github.com/aslahea/sample-maven-app.git']]
@@ -31,7 +31,7 @@ pipeline {
 
         stage('Build') {
             steps {
-                echo 'Building the Maven project...'
+                echo '🔹 Building the Maven project...'
                 sh '''
                     echo "----- BUILD LOG -----" > build_report.txt
                     mvn clean package -DskipTests >> build_report.txt 2>&1
@@ -41,7 +41,7 @@ pipeline {
 
         stage('Unit Test') {
             steps {
-                echo 'Running Unit Tests...'
+                echo '🔹 Running Unit Tests...'
                 sh '''
                     echo "----- TEST LOG -----" > test_report.txt
                     mvn test >> test_report.txt 2>&1
@@ -52,7 +52,7 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                echo 'Starting SonarQube Analysis...'
+                echo '🔹 Starting SonarQube Analysis...'
                 withSonarQubeEnv('sonar') {
                     sh '''
                         echo "----- SONAR ANALYSIS LOG -----" > sonar_report.txt
@@ -74,7 +74,7 @@ pipeline {
                 script {
                     def qg = waitForQualityGate()
                     if (qg.status != 'OK') {
-                        error "Quality Gate failed: ${qg.status}"
+                        error "❌ Quality Gate failed: ${qg.status}"
                     } else {
                         echo "Quality Gate Passed Successfully!"
                     }
@@ -84,7 +84,7 @@ pipeline {
 
         stage('Docker Login') {
 	    steps {
-		echo 'Logging into DockerHub...'
+		echo '🔹 Logging into DockerHub...'
 		withCredentials([usernamePassword(credentialsId: 'dockerCred', usernameVariable: 'dockerUser', passwordVariable: 'dockerPass')]) {
 		    sh '''
 		        echo "${dockerPass}" | docker login -u "${dockerUser}" --password-stdin
@@ -125,7 +125,7 @@ pipeline {
         // NEW STAGE: Docker Info for Report
         stage('Docker Info') {
             steps {
-                echo ' Generating Docker Report...'
+                echo '📝 Generating Docker Report...'
                 sh '''
                     echo "----- DOCKER IMAGE INFO -----" > docker_report.txt
                     echo "Docker Image: ${DOCKER_IMAGE}" >> docker_report.txt
@@ -145,7 +145,7 @@ pipeline {
 
         stage('Docker Cleanup') {
 	    steps {
-		echo 'Cleaning up local Docker containers and images...'
+		echo '🧹 Cleaning up local Docker containers and images...'
 		sh '''
 		    # Stop all running containers (ignore errors if none)
 		    docker ps -q | xargs -r docker stop || true
@@ -201,43 +201,7 @@ pipeline {
                     "Sonar Analysis Report": "sonar_report.txt",
                     "Docker Report": "docker_report.txt"
                 ]
-            )@Library('jenkins-shared-lib') _
-
-pipeline {
-    agent { label "dev" }
-
-    tools {
-        maven 'M3'
-    }
-
-    environment {
-        JAVA_HOME = '/usr/lib/jvm/java-21-openjdk-amd64'
-        PATH = "${JAVA_HOME}/bin:${PATH}"
-
-        SONAR_PROJECT_KEY = 'com.mycompany.app:my-maven-project'
-        SONAR_TOKEN = credentials('sonar-token')
-    }
-
-    stages {
-        stage('Checkout Code') {
-            steps {
-                echo 'Checking out code from GitHub...'
-                checkout scmGit(
-                    branches: [[name: '*/main']],
-                    userRemoteConfigs: [[url: 'https://github.com/aslahea/sample-maven-app.git']]
-                )
-            }
-        }
-
-        stage('Build') {
-            steps {
-                echo 'Building the Maven project...'
-                sh '''
-                    echo "----- BUILD LOG -----" > build_report.txt
-                    mvn clean package -DskipTests >> build_report.txt 2>&1
-                '''
-            }
-
+            )
         }
 
         aborted {
