@@ -1,0 +1,125 @@
+@Library('jenkins-shared-lib') _
+
+pipeline {
+    agent { label "dev" }
+
+    tools {
+        maven 'M3'
+    }
+
+    environment {
+        JAVA_HOME = '/usr/lib/jvm/java-21-openjdk-amd64'
+        PATH = "${JAVA_HOME}/bin:${PATH}"
+
+        SONAR_PROJECT_KEY = 'com.mycompany.app:my-maven-project'
+        SONAR_TOKEN = credentials('sonar-token')
+    }
+
+    stages {
+        stage('Checkout Code') {
+            steps {
+                echo 'Checking out code from GitHub...'
+                checkout scmGit(
+                    branches: [[name: '*/main']],
+                    userRemoteConfigs: [[url: 'https://github.com/aslahea/sample-maven-app.git']]
+                )
+            }
+        }
+
+        stage('Build') {
+            steps {
+                echo 'Building the Maven project...'
+                sh '''
+                    echo "----- BUILD LOG -----" > build_report.txt
+                    mvn clean package -DskipTests >> build_report.txt 2>&1
+                '''
+            }
+        }
+
+        stage('Unit Test') {
+            steps {
+                echo 'Running Unit Tests...'
+                sh '''
+                    echo "----- TEST LOG -----" > test_report.txt
+                    mvn test >> test_report.txt 2>&1
+                '''
+                junit '**/target/surefire-reports/*.xml'
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                echo 'Starting SonarQube Analysis...'
+                withSonarQubeEnv('sonar') {
+                    sh '''
+                        echo "----- SONAR ANALYSIS LOG -----" > sonar_report.txt
+                        mvn sonar:sonar \
+                            -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                            -Dsonar.token=${SONAR_TOKEN} \
+                            -Dsonar.projectName='my-maven-project' >> sonar_report.txt 2>&1
+                    '''
+                }
+            }
+        }
+
+        stage('Quality Gate Check') {
+            options {
+                timeout(time: 20, unit: 'MINUTES')
+            }
+            steps {
+                echo 'Checking SonarQube Quality Gate...'
+                script {
+                    def qg = waitForQualityGate()
+                    if (qg.status != 'OK') {
+                        error "Quality Gate failed: ${qg.status}"
+                    } else {
+                        echo "✅ Quality Gate Passed Successfully!"
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            echo 'Archiving build reports...'
+            archiveArtifacts artifacts: '*.txt', fingerprint: true
+        }
+
+        success {
+            echo '✅ Build succeeded - triggering email notification'
+            sendEmailNotification(
+                currentBuild.currentResult,
+                [
+                    "Build Report": "build_report.txt",
+                    "Unit Test Report": "test_report.txt",
+                    "Sonar Analysis Report": "sonar_report.txt"
+                ]
+            )
+        }
+
+        failure {
+            echo '❌ Build failed - triggering email notification'
+            sendEmailNotification(
+                currentBuild.currentResult,
+                [
+                    "Build Report": "build_report.txt",
+                    "Unit Test Report": "test_report.txt",
+                    "Sonar Analysis Report": "sonar_report.txt"
+                ]
+            )
+        }
+
+        aborted {
+            echo '⚠️ Build aborted - triggering email notification'
+            sendEmailNotification(
+                currentBuild.currentResult,
+                [
+                    "Build Report": "build_report.txt",
+                    "Unit Test Report": "test_report.txt",
+                    "Sonar Analysis Report": "sonar_report.txt"
+                ]
+            )
+        }
+    }
+}
