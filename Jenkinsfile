@@ -122,7 +122,6 @@ pipeline {
             }
         }
         
-        // NEW STAGE: Docker Info for Report
         stage('Docker Info') {
             steps {
                 echo '📝 Generating Docker Report...'
