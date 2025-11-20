@@ -1,5 +1,5 @@
 # Base Java image - think of this as the minimum requirement to run your Java application
-FROM openjdk:17-jdk-slim
+FROM eclipse-temurin:17-jdk-alpine
 
 # Set the working directory for the final application container
 WORKDIR /app
