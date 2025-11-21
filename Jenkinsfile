@@ -1,7 +1,7 @@
 @Library('jenkins-shared-lib') _
 
 pipeline {
-    agent { label "dev" }
+    agent { label "worker" }
 
     tools {
         maven 'M3'
